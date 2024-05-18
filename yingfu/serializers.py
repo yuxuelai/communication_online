@@ -6,23 +6,6 @@ from .models import User
 import re
 
 
-# def validate_phone(value):
-#     if not re.match(r'^1[3-9]\d{9}$', value):
-#         raise serializers.ValidationError("无效的手机号码")
-#     if User.objects.filter(phone=value).exists():
-#         raise serializers.ValidationError("该手机号码已被注册")
-#     return value
-
-# def custom_make_password(password):
-#     """
-#     自定义密码加密方法
-#     """
-#     # 生成一个随机的 salt，你也可以使用其他方式生成 salt
-#     salt = "random_salt"  # 这里仅用一个固定的 salt 作为示例
-#     # 将密码和 salt 拼接起来，然后计算其 SHA-256 散列值
-#     hashed_password = hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
-#     return hashed_password
-
 def custom_make_password(password):
     """
     自定义密码加密方法
@@ -51,7 +34,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'repassword',"phone"]
+        fields = ['username', 'email', 'password', 'repassword', "phone"]
         extra_kwargs = {
             'password': {'write_only': True},
         }
@@ -59,6 +42,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     """
     校验获取到的用户名是否符合验证规则
     """
+
     def validate_username(self, value):
         # 用户名必须是8-16位，支持中文、字母、下划线
         if not re.match(r'^[\w\u4e00-\u9fff]{8,16}$', value):
@@ -68,6 +52,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     """
     校验获取到的密码是否符合验证规则
     """
+
     def validate_password(self, value):
         # 密码必须是8-16位，首字母大写，支持字母、数字、符号
         if not re.match(r'^[A-Z][A-Za-z0-9@#$%^&+=]{7,15}$', value):
@@ -77,6 +62,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     """
     校验获取到的电话格式是否符合验证规则
     """
+
     def validate_phone(self, value):
         if not re.match(r'^1[3-9]\d{9}$', value):
             raise serializers.ValidationError("无效的手机号码")
@@ -87,6 +73,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     """
     校验二次确认密码是否一致
     """
+
     def validate(self, data):
         if data['password'] != data['repassword']:
             raise serializers.ValidationError("密码和确认密码不匹配")
@@ -96,6 +83,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     验证没问题那么将获取的传入User中
     创建数据库对应的用户信息
     """
+
     def create(self, validated_data):
         validated_data.pop('repassword')
         user = User.objects.create_user(**validated_data)
@@ -145,3 +133,54 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("必须同时提供用户名或手机号和密码")
         # 最后返回数据data
         return data
+
+
+"""
+忘记密码的验证/判断器
+"""
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    old_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        # 校验密码格式是否为 8-16位，首字母大写，可以包含中文，字符和字母
+        if not re.match(r'^[A-Z][A-Za-z0-9@#$%^&+=]{7,15}$', value):
+            raise serializers.ValidationError("密码格式错误 密码格式为 8-16位，首字母大写，可以包含中文，字符和字母")
+        return value
+
+    def validate(self, data):
+        # print(bool(data.get('old_password')))
+        if data.get('old_password'):
+            # 如果有旧密码，则进行密码比对
+            username = data.get('username')
+            old_password = data.get('old_password')
+            new_password = data.get('new_password')
+            confirm_password = data.get('confirm_password')
+
+            user = User.objects.filter(username=username).first()
+            if user and check_password(old_password, user.password):
+                if new_password != confirm_password:
+                    raise serializers.ValidationError("两次输入的密码不一致")
+                return data
+            else:
+                raise serializers.ValidationError("原密码错误或用户不存在")
+        else:
+            if data['new_password'] != data['confirm_password']:
+                raise serializers.ValidationError("两次输入的密码不一致")
+            return data
+
+    def save(self, **kwargs):
+        username = self.validated_data['username']
+        new_password = self.validated_data['new_password']
+
+        user = User.objects.get(username=username)
+        # 重新设置密码
+        user.set_password(new_password)
+        user.save()
+        return user
+
+

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'rest_framework',
     'yingfu',
 ]
@@ -70,6 +72,19 @@ TEMPLATES = [
     },
 ]
 
+# 配置异步通信的asgi
+ASGI_APPLICATION = 'guangrun.asgi.application'
+
+# 配置CHANNEL和redis层的连接信息
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],  # Redis服务器地址和端口
+        },
+    },
+}
+
 WSGI_APPLICATION = 'guangrun.wsgi.application'
 
 # Database
@@ -91,8 +106,6 @@ DATABASES = {
     }
 }
 
-from datetime import timedelta
-
 # 配置REST_FRAMEWORK 中的JWTAuthentication 验证
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -106,7 +119,7 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': False,
+    'UPDATE_LAST_LOGIN': True,
 
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': 'guangrun',  # 替换为你自己的密钥

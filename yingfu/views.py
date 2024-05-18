@@ -1,20 +1,11 @@
-from django.contrib.auth.hashers import make_password, check_password
-from django.contrib.auth.models import User
-from django.http import JsonResponse, response, request
-from django.shortcuts import render
-from django.views.decorators.http import require_http_methods
-from yingfu import models
-from yingfu.form import UserForm
-
 # Create your views here.
-
 from rest_framework.decorators import api_view
-from .serializers import RegistrationSerializer
+from .serializers import RegistrationSerializer, ResetPasswordSerializer
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import LoginSerializer
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken, TokenError
 
 """
 用户注册逻辑的编写
@@ -66,3 +57,52 @@ class LoginAPIView(APIView):
                 'access': str(refresh.access_token),
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+"""
+忘记密码的编写
+"""
+
+
+class ResetPasswordView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = ResetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': '密码重置成功'}, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+"""
+验证token是否有效
+同时验证AccessToken和RefreshToken
+"""
+
+
+class TokenVerifyView(APIView):
+    def post(self, request, *args, **kwargs):
+
+        token = request.data.get("token", None)
+        token_type = request.data.get('token_type', 'access')
+
+        if token is None:
+            return Response({"detail": "请传入需要验证的token"})
+
+        try:
+            if token_type == "access":
+                # print(AccessToken(token).lifetime)
+                AccessToken(token)
+                return Response({"detail": "AccessToken 有效"}, status=status.HTTP_200_OK)
+            elif token_type == "refresh":
+                # print(RefreshToken(token).lifetime)
+                RefreshToken(token)
+                return Response({"detail": "RefreshToken 有效"}, status=status.HTTP_200_OK)
+
+            else:
+                return Response({"detail": "无效token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        except TokenError:
+            return Response({"detail": "无效token或者token已经过期了"}, status=status.HTTP_400_BAD_REQUEST)
+
+

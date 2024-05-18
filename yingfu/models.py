@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
+import hashlib
 
 
 class CustomUserManager(BaseUserManager):
@@ -50,7 +51,7 @@ class User(AbstractBaseUser):
         return self.username
 
 
-import hashlib
+
 
 
 def custom_make_password(password):
