@@ -7,16 +7,15 @@ from rest_framework.views import APIView
 from .serializers import LoginSerializer
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken, TokenError
 
-"""
-用户注册逻辑的编写
-输入长度控制在8-16位 可以是中文,字母,下划线组成
-如果后端校验与上述不符合的话 那么抛出信息给用户
-请输入由中文,字母,下划线组成的 8-16位用户名/密码
-
-"""
-
 
 class RegisterAPIView(APIView):
+    """
+    用户注册逻辑的编写
+    输入长度控制在8-16位 可以是中文,字母,下划线组成
+    如果后端校验与上述不符合的话 那么抛出信息给用户
+    请输入由中文,字母,下划线组成的 8-16位用户名/密码
+
+    """
     def post(self, request, *args, **kwargs):
         # 获取表单传递过来的数据
         registration_data = request.data
@@ -32,16 +31,15 @@ class RegisterAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-"""
-
-用户登录逻辑的编写
-使用rest_framework中的serializer进行后端校验与上述不符合的话 
-那么抛出提示信息给用户
-
-"""
-
-
 class LoginAPIView(APIView):
+    """
+
+    用户登录逻辑的编写
+    使用rest_framework中的serializer进行后端校验与上述不符合的话
+    那么抛出提示信息给用户
+
+    """
+
     def post(self, request, *args, **kwargs):
         # 获取数据进行验证
         serializer = LoginSerializer(data=request.data)
@@ -59,12 +57,11 @@ class LoginAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-"""
-忘记密码的编写
-"""
-
-
 class ResetPasswordView(APIView):
+    """
+    忘记密码的编写
+    """
+
     def post(self, request, *args, **kwargs):
         serializer = ResetPasswordSerializer(data=request.data)
         if serializer.is_valid():
@@ -74,14 +71,13 @@ class ResetPasswordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-"""
-验证token是否有效
-同时验证AccessToken和RefreshToken
-
-"""
-
-
 class TokenVerifyView(APIView):
+    """
+    验证token是否有效
+    同时验证AccessToken和RefreshToken
+
+    """
+
     def post(self, request, *args, **kwargs):
 
         token = request.data.get("token", None)
@@ -105,5 +101,3 @@ class TokenVerifyView(APIView):
 
         except TokenError:
             return Response({"detail": "无效token或者token已经过期了"}, status=status.HTTP_400_BAD_REQUEST)
-
-

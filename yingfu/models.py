@@ -51,9 +51,6 @@ class User(AbstractBaseUser):
         return self.username
 
 
-
-
-
 def custom_make_password(password):
     """
     自定义密码加密方法

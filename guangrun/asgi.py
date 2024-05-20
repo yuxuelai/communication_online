@@ -17,11 +17,9 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'guangrun.settings')
 
 # application = get_asgi_application()
 
-application = ProtocolTypeRouter({"http": get_asgi_application(),
-                                  "websocket": AuthMiddlewareStack(
-                                      URLRouter(
-                                          websocket_urlpatterns
-
-                                      )
-                                  ),
-                                  })
+application = ProtocolTypeRouter({
+    "http": get_asgi_application(),  # 处理http请求
+    "websocket": AuthMiddlewareStack(  # 处理Websocket 请求
+        URLRouter(websocket_urlpatterns)
+    ),
+})
