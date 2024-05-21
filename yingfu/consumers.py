@@ -71,3 +71,79 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "message": message
         }))
+
+
+class PrivateChatConsumer(AsyncWebsocketConsumer):
+    """
+    消费者---处理websocket 处理私聊客户端发过来的消息
+            使用channel_layer 进行连接分组 ，消息分发
+    """
+
+    async def connect(self):
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        self.room_group_name = f'private_chat_{self.room_name}'
+
+        # 获取当前组的频道名称列表
+        group_members = await self.get_group_members(self.room_group_name)
+        print(len(group_members))
+
+        # 检查房间是否已经有两个用户
+        if len(group_members) >= 2:
+            await self.send(text_data=json.dumps({
+                'error': 'Private chat room is full. Please try again later.'
+            }))
+            await self.close()
+        else:
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+            await self.accept()
+
+    # 每一个断开的链接都会触发disconnect方法
+    async def disconnect(self, close_code):
+        print("断开的房间名：", self.room_group_name)
+        print("channel_name：", self.channel_name)
+
+        await self.channel_layer.group_discard(  # group_discard() 将当前的websocket连接从组中移除
+            self.room_group_name,
+            self.channel_name
+        )
+        print(f'Client disconnected from room: {self.room_group_name}')
+
+    # 接受到各个客户端的消息 进行消息转发
+    async def receive(self, text_data=None, bytes_data=None):  # 接收消息时触发
+        if text_data:
+            text_data_json = json.loads(text_data)
+            message = text_data_json['message']
+            # print(type(self.room_name))
+            print("收到来自" + self.room_group_name + "房间的消息：", message)
+
+            # 信息群发 ---- 根据之前group_add() 保存的客户端连接成功信息进行消息转发
+            await self.channel_layer.group_send(  # group_send()  将消息发送给组中
+                self.room_group_name,
+                {"type": "chat_message",
+                 "message": message,
+
+                 }
+            )
+
+    # 自定义方法 将组中获取到的消息 传递给客户端  与上面方法receive 中type chat_message 对应
+    # 没有实现这个方法的话 组中的消息将无法传递给客户端
+    async def chat_message(self, event):  # event 从组中接受到消息/事件
+        message = event['message']
+
+        await self.send(text_data=json.dumps({
+            "message": message,
+
+        }))
+
+    async def get_group_members(self, group_name):
+        redis = await aioredis.Redis()
+        # print(redis)
+        group_key = f"asgi:group:{group_name}"
+        # print("group_key", group_key)
+        members = await redis.zrange(group_key, 0, -1)  # 获取以group_key为名的zset 0 -1 去除全部zset当中的值 返回一个列表
+        # print(members, len(members))
+        redis.close()
+        return members
