@@ -147,3 +147,50 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         # print(members, len(members))
         redis.close()
         return members
+
+
+class PrivateChatConsumer2(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user_name = self.scope['url_route']['kwargs']['user_name']
+        self.room_user_name = self.user_name
+
+        # print("连接的room_user_name", self.room_user_name)
+        await self.channel_layer.group_add(  # channel_layer.group_add() 这个是将websocket的连接加入到指定的组
+            self.room_user_name,  # 根据room_group_name
+            self.channel_name  # 每一个连接成功的都会有一个channel_name
+
+        )
+        await self.accept()
+
+    async def disconnect(self, close_code):
+
+        await self.channel_layer.group_discard(  # group_discard() 将当前的websocket连接从组中移除
+            self.room_user_name,
+            self.channel_name
+        )
+        print(f'Client disconnected from room: {self.room_user_name}')
+
+    async def receive(self, text_data=None,bytes_data=None):
+        # 当接收到客户端消息时调用
+        text_data_json = json.loads(text_data)
+        message = text_data_json['message']
+
+        print(message)
+        # 一对一发送消息到特定用户（需要用户标识）
+        user_id = text_data_json['to_user']
+        self.room_user_name = user_id
+        # 信息群发 ---- 根据之前group_add() 保存的客户端连接成功信息进行消息转发
+        await self.channel_layer.group_send(  # group_send()  将消息发送给组中
+            self.room_user_name,
+            {"type": "chat_message",
+             "message": message,
+
+             }
+        )
+
+    async def chat_message(self, event):
+        # 在group中的每个消息者调用此方法来发送消息
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'message': message
+        }))
